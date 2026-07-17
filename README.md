@@ -31,7 +31,7 @@ opencode-memories gives AI agents persistent memory across sessions. Instead of 
    ```json
    {
      "plugins": [
-       "./path/to/opencode-memories/src/memories-v5.9.ts"
+       "./path/to/opencode-memories/src/memories.ts"
      ]
    }
    ```
@@ -45,11 +45,11 @@ opencode-memories gives AI agents persistent memory across sessions. Instead of 
 Start a new session — the plugin will prompt you to create or attach a session:
 
 ```
-💾 MEMORIES — Выбор сессии
+💾 MEMORIES — Session Selection
 
-📎 Привязать — выбрать существующую сессию
-🆕 Создать — создать новую сессию
-⏭ Пропустить — продолжить без сессии
+📎 Attach — select an existing session
+🆕 Create — create a new session
+⏭ Skip — continue without a session
 ```
 
 Use commands via `@memories`:

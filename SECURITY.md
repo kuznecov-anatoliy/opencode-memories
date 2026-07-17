@@ -8,6 +8,8 @@ https://github.com/kuznecov-anatoliy/opencode-memories/security/advisories
 
 Do **not** report security vulnerabilities via public issues.
 
+Alternatively, you can report vulnerabilities directly via email: **kuznecov.anatoly@gmail.com** (PGP fingerprint available on request).
+
 You can expect an acknowledgement within 72 hours and a detailed response within 5 business days.
 
 ## Scope
