@@ -16,7 +16,16 @@
     "memory",
     "ai",
     "session",
-    "persistence"
+    "persistence",
+    "llm",
+    "ai-agents",
+    "context-management",
+    "agent-memory",
+    "long-term-memory",
+    "session-management",
+    "fts5",
+    "sqlite",
+    "typescript"
   ],
   "engines": {
     "node": ">=18"

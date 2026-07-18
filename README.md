@@ -1,26 +1,55 @@
 # opencode-memories
 
-> A 3-tier hybrid memory plugin for [OpenCode](https://github.com/opencode-ai) with endless sessions (soft compaction). Persistent session memory, decision board, problems & chronology for AI agents.
+> **3-tier hybrid memory plugin for [OpenCode](https://github.com/opencode-ai)** — endless sessions (soft compaction), persistent context, atomic message archive, and session isolation for multi-tasking with AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![OpenCode](https://img.shields.io/badge/OpenCode-plugin-blue)](https://github.com/opencode-ai)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)](https://www.typescriptlang.org/)
 
 ---
 
 ## Overview
 
-opencode-memories gives AI agents persistent memory across sessions using a **3-tier hybrid architecture**:
+opencode-memories gives AI agents **permanent context** across sessions using a **3-tier hybrid architecture** — the only plugin that combines lossless message storage, a structured decision dashboard, and infinite sessions without losing history.
 
-### 🧠 1. Compressed Memory
-Keeps the agent aware of where it is and what it's doing in the moment. Consists of a **dashboard** (decision board, current state, known problems) and a **recent message history** compressed by the agent. Updates automatically — on agent's decision, on `save` command, or on auto-compaction trigger.
+### 🧠 1. Compressed Memory — *context awareness*
+The agent always knows where it is and what it's doing. A structured **dashboard** (decision board, current state, known problems) plus **recent message history** — all compressed by the agent itself. Updates on three triggers: agent's decision, `save` command, or auto-compaction.
 
-### 💾 2. Atomic Memory
-Stores **every single message as-is**, unprocessed, in the SQLite database. Think of it as the source of truth:
-- **Recall** — search anything when you need to remember
-- **Anti-rot** — refreshes compressed memory with fresh context, preventing context decay
-- **Full recovery** — rebuilds compressed memory from scratch if it gets corrupted
+### 💾 2. Atomic Memory — *source of truth*
+**Every message stored as-is** in SQLite with full-text search (FTS5). Never compressed, never summarized. Used for:
+- **Recall** — search anything by keyword, even months later
+- **Anti-rot** — refreshes compressed memory to prevent context decay
+- **Full recovery** — rebuilds the dashboard from scratch if corrupted
 
-### 📂 3. Session Isolation (Multi-tasking within a project)
-Each task gets its own named session within a project. Start a session for a specific feature, script, or functionality — give it a meaningful name. Work endlessly in one tab until the task is done. Come back a month later — the agent remembers everything: what was done, why, and can pick up right where you left off.
+### 📂 3. Session Isolation — *multi-tasking within a project*
+Each task gets its **own named session**. Work on feature A in one tab, bug B in another — each with its own memory, decisions, and history. Come back a month later — the agent remembers everything: what was done, why, and can pick up right where you left off.
+
+---
+
+## Why opencode-memories?
+
+| Problem | Solution |
+|---------|----------|
+| Agent forgets context after session ends | **Session resume** — memory lives outside the context window |
+| Session compaction kills history | **Soft compaction** — plugin captures everything before compression |
+| Can't find that one decision from weeks ago | **Atomic archive** — every message in SQLite with FTS5 search |
+| Context rot in long sessions | **Structured overwrite** — dashboard replaces itself, never accumulates noise |
+| Plugin crashes lose data | **Atomic persist** — write-to-tmp + rename, main DB never corrupted |
+| One session pollutes another | **Session isolation** — separate memory per task within the same project |
+
+---
+
+## Table of Contents
+
+- [Overview & Architecture](#overview) — how the 3-tier memory works
+- [Why opencode-memories?](#why-opencode-memories) — key differentiators at a glance
+- [Installation](#installation) — setup guide
+- [Quick Start](#quick-start) — first session in 30 seconds
+- [Commands](#commands) — full command reference
+- [How It Works](#how-it-works) — technical architecture
+- [Protocols](#protocols) — SESSION-START, POST-COMPACTION, AUTO-SAVE
+- [Security](#security) — data safety
+- [License](#license)
 
 ---
 
