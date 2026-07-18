@@ -1,6 +1,6 @@
 # opencode-memories
 
-> Long-term memory plugin for [OpenCode](https://github.com/opencode-ai) — persistent session memory, decision log, problems & chronology for AI agents.
+> A 3-tier hybrid memory plugin for [OpenCode](https://github.com/opencode-ai) with endless sessions (soft compaction). Persistent session memory, decision board, problems & chronology for AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -8,13 +8,19 @@
 
 ## Overview
 
-opencode-memories gives AI agents persistent memory across sessions. Instead of losing context when a session ends, the plugin:
+opencode-memories gives AI agents persistent memory across sessions using a **3-tier hybrid architecture**:
 
-- **Saves decisions** — architectural choices, design rationale, with status tracking (ACTIVE / SUPERSEDED / REVERTED)
-- **Tracks problems** — known bugs, risks, with severity levels
-- **Maintains chronology** — full history of agent-user conversations
-- **Manages sessions** — create, switch, search across multiple memory sessions
-- **Auto-preserves context** — POST-COMPACTION protocol saves critical context before session compression
+### 🧠 1. Compressed Memory
+Keeps the agent aware of where it is and what it's doing in the moment. Consists of a **dashboard** (decision board, current state, known problems) and a **recent message history** compressed by the agent. Updates automatically — on agent's decision, on `save` command, or on auto-compaction trigger.
+
+### 💾 2. Atomic Memory
+Stores **every single message as-is**, unprocessed, in the SQLite database. Think of it as the source of truth:
+- **Recall** — search anything when you need to remember
+- **Anti-rot** — refreshes compressed memory with fresh context, preventing context decay
+- **Full recovery** — rebuilds compressed memory from scratch if it gets corrupted
+
+### 📂 3. Session Isolation (Multi-tasking within a project)
+Each task gets its own named session within a project. Start a session for a specific feature, script, or functionality — give it a meaningful name. Work endlessly in one tab until the task is done. Come back a month later — the agent remembers everything: what was done, why, and can pick up right where you left off.
 
 ---
 

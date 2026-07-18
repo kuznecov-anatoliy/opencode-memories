@@ -1,7 +1,7 @@
 {
   "name": "opencode-memories",
   "version": "1.0.0",
-  "description": "Long-term memory plugin for OpenCode — persistent session memory, decision log, problems & chronology for AI agents",
+  "description": "3-tier hybrid memory plugin for OpenCode with endless sessions (soft compaction) — compressed memory, atomic SQLite archive, session isolation for multi-tasking",
   "type": "module",
   "main": "src/memories.ts",
   "license": "MIT",
