@@ -69,12 +69,18 @@ Use commands via `@memories`:
 | Command | Description |
 |---------|-------------|
 | `@memories state` | Show current session MEMORY file |
-| `@memories sessions` | List all sessions |
-| `@memories search <query>` | Full-text search across all sessions |
-| `@memories add-decision <text>` | Add a decision to the decision log |
+| `@memories add-decision <text>` | Add a decision to the decision board |
 | `@memories resolve-decision <id>` | Mark a decision as SUPERSEDED |
 | `@memories add-problem <text>` | Add a problem |
 | `@memories close-problem <id>` | Close a problem |
+| `@memories rename <name>` | Rename current session |
+| `@memories new <name>` | Create a new session |
+| `@memories switch <name>` | Switch to another session |
+| `@memories attach <name>` | Attach this tab to an existing session |
+| `@memories detach` | Detach this tab from its session |
+| `@memories delete <name>` | Delete a session completely |
+| `@memories sql <query>` | Run a SELECT query on the session database |
+| `@memories cleanup` | Clean up orphan records |
 
 ---
 

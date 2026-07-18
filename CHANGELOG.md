@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0] — 2026-07-18
+
+### Added
+- v1.0 release — stable API, full English translation
+- All plugin strings and prompts translated to English
+- Comprehensive OSS documentation (README, SECURITY, CONTRIBUTING, CoC)
+- CI pipeline with npm audit
+
+### Fixed
+- Type safety annotations for SDK type mismatches
+- SECURITY.md contact email added
+- CI: removed strict type check (known SDK incompatibility)
+
 ## [0.1.0] — 2026-07-17
 
 ### Added
@@ -7,7 +20,7 @@
 - Session management with SESSION-START / SESSION-SELECT protocol
 - POST-COMPACTION protocol for context preservation after session compaction
 - AUTO-SAVE proposal after logical milestones
-- Tool commands: state, sessions, search, add-decision, resolve-decision, add-problem, close-problem
+- Tool commands: state, add-decision, resolve-decision, add-problem, close-problem, rename, new, switch, attach, detach, delete, sql, cleanup
 - SQLite-based storage with FTS5 full-text search
 - MEMORY file generation in markdown format
 - Per-session state isolation

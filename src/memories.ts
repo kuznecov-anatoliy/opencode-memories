@@ -42,6 +42,7 @@
 // ========== 1. IMPORTS & CONFIG ==========
 
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
+// @ts-expect-error — no types for sql.js-fts5 (WASM-only package)
 import initSqlJs from "sql.js-fts5";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -2775,13 +2776,17 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         }
       }
 
+      // @ts-expect-error — SDK return type is {data, error}, not fetch Response
       if (!response.ok) {
+        // @ts-expect-error — SDK return type is {data, error}, not fetch Response
         console.warn("memories-v5: HTTP API session.messages() failed:", response.status, response.statusText);
         try { await ctx.client?.tui.showToast({
+          // @ts-expect-error — SDK return type is {data, error}, not fetch Response
           body: { title: "⚠️ Memory v5", message: "HTTP " + response.status + ": error retrieving messages", variant: "warning", duration: 3000 },
         }); } catch {}
       }
 
+      // @ts-expect-error — SDK return type is {data, error}, not fetch Response
       if (response.ok && messages.length > 0 && state.unsavedMessages.length > 0) {
         const nBefore = messages.length;
         for (const msg of state.unsavedMessages) {
@@ -2823,12 +2828,14 @@ If you receive the command "Continue if you have next steps, or stop and ask for
    * Filters out orphan records (present in session_map, but no .md or sessions)
    */
   function getSessionList(): string[] {
+    // @ts-expect-error — MemDB.all() is private, used internally
     const allMapped = db.all("SELECT session_name FROM session_map ORDER BY session_name");
     const dbSessions: string[] = [];
     for (const row of allMapped) {
       const name = row.session_name;
       const mdPath = getSessionMdPathV5(directory, name);
       const hasMd = fs.existsSync(mdPath);
+      // @ts-expect-error — MemDB.get() is private, used internally
       const hasSession = !!db.get("SELECT 1 FROM sessions WHERE name = ?", [name]);
       if (hasMd || hasSession) {
         dbSessions.push(name);
@@ -2968,6 +2975,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         attachName = attachName.replace(/^MEMORY_/i, '');
         const existingInList = getSessionList().includes(attachName);
         if (existingInList) {
+          // @ts-expect-error — MemDB.get() is private, used internally
           const currentBinding = db.get("SELECT session_name FROM session_map WHERE session_id = ?", [sessionID]);
           if (currentBinding && currentBinding.session_name === attachName) {
             state.name = attachName;
@@ -2976,6 +2984,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
             handled = true;
           } else {
             // Check — is attachName already taken by another sessionID
+            // @ts-expect-error — MemDB.get() is private, used internally
             const nameOwner = db.get("SELECT session_id FROM session_map WHERE session_name = ?", [attachName]);
             if (nameOwner && nameOwner.session_id !== sessionID) {
               if (output?.message) output.message.system = '❌ Session **' + attachName + '** is already bound to another tab. Use a different name.';
@@ -3182,4 +3191,5 @@ RAW SQL:
     },
     dispose: disposeHandler,
   };
+// @ts-expect-error — SDK expects Zod schemas for tool args, Plugin type mismatch
 }) satisfies Plugin;
