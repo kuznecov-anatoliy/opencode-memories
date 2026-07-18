@@ -24,6 +24,8 @@ The agent always knows where it is and what it's doing. A structured **dashboard
 ### 📂 3. Session Isolation — *multi-tasking within a project*
 Each task gets its **own named session**. Work on feature A in one tab, bug B in another — each with its own memory, decisions, and history. Come back a month later — the agent remembers everything: what was done, why, and can pick up right where you left off.
 
+> **🔗 Cross-session access** — sessions are isolated but not siloed. While working in one session, the agent can read and reference memory from other sessions via the shared SQLite database. Use `@memories sql` or `@memories search` to query across all sessions. This means your `bug-fix-login` session can learn from the `auth-refactor` session's decisions, all without switching tabs.
+
 ---
 
 ## Why opencode-memories?
@@ -36,6 +38,7 @@ Each task gets its **own named session**. Work on feature A in one tab, bug B in
 | Context rot in long sessions | **Structured overwrite** — dashboard replaces itself, never accumulates noise |
 | Plugin crashes lose data | **Atomic persist** — write-to-tmp + rename, main DB never corrupted |
 | One session pollutes another | **Session isolation** — separate memory per task within the same project |
+| Need info from another session? | **Cross-session access** — read any session's memory without leaving the current one |
 
 ---
 
