@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0] — 2026-07-18
+
+### Added
+- Unattached session detection (syntheticName flag) — POST-COMPACTION no longer created for unnamed sessions
+- Safety timer cancellation — compact timer cancels on normal completion, no unnecessary 120s wait
+- Conditional compact prompt — unattached sessions get "What shall we do next?" instead of broken MEMORY link
+- Defense-in-depth disposal guards — isDisposed check in systemTransform and messagesTransform handlers
+- Pending state cleanup on session operations (detach, new, switch)
+
+### Fixed
+- cleanupSessionState now fully clears all timers and flags (systemTransformCalled, pendingPostCompact, isCompacting)
+- systemTransformCalled map cleared on plugin dispose — prevents stale entries
+- Detach now properly removes pendingPostCompact timer
+
 ## [1.0.0] — 2026-07-18
 
 ### Added

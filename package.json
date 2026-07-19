@@ -1,6 +1,6 @@
 {
   "name": "opencode-memories",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "3-tier hybrid memory plugin for OpenCode with endless sessions (soft compaction) — compressed memory, atomic SQLite archive, session isolation for multi-tasking",
   "type": "module",
   "main": "src/memories.ts",

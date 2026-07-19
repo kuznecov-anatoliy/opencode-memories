@@ -591,6 +591,7 @@ interface SessionState {
   sessionSelectAttempts: number;   // counter for invalid attempts (force auto-naming after 3)
   sessionStartInjected: boolean;   // [SESSION-START] already injected into messages.transform (D63)
   firstMessageTime: number;        // first message timestamp (race guard)
+  syntheticName: boolean;          // P3: true if name was given by fallback (F2/F5/F6), not by user
 }
 
 // ========== 5. MEMDB CLASS ==========
@@ -1393,6 +1394,7 @@ export default (async (ctx: PluginInput) => {
         sessionSelectAttempts: 0,
         sessionStartInjected: false,
         firstMessageTime: 0,
+        syntheticName: false,
       };
       sessionStates.set(sessionID, state);
     }
@@ -1402,6 +1404,10 @@ export default (async (ctx: PluginInput) => {
   function cleanupSessionState(sessionID: string): void {
     sessionStates.delete(sessionID);
     isCompacting.delete(sessionID);
+    systemTransformCalled.delete(sessionID);
+    cleanupPendingViaChat(sessionID);
+    const ppc = pendingPostCompact.get(sessionID);
+    if (ppc) { clearTimeout(ppc.timer); pendingPostCompact.delete(sessionID); }
   }
 
   // v5.5: clear pendingPostCompactViaChat for a session (on switch/detach)
@@ -1424,7 +1430,8 @@ export default (async (ctx: PluginInput) => {
       if (!state.name && now - state.lastActivity > 3600000) {
         const mapped = db.getSessionMapName(sid);
         if (!mapped) {
-          sessionStates.delete(sid);
+          cleanupPendingViaChat(sid);
+          cleanupSessionState(sid);
           diagLog("GC: removed zombie session " + sid.slice(0, 16));
         }
       }
@@ -1524,6 +1531,7 @@ export default (async (ctx: PluginInput) => {
         const mappedName = db.getSessionMapName(sessionID);
         if (mappedName) {
           state.name = mappedName;
+          state.syntheticName = false;
         } else if (!state.name) {
           // New tab without session binding.
           // Set the SESSION-SELECT flag HERE, in session.created,
@@ -1585,6 +1593,7 @@ export default (async (ctx: PluginInput) => {
           const dbName = typeof db.getSessionMapName === 'function' ? db.getSessionMapName(sessionID) : null;
           if (dbName) {
             state.name = dbName;
+            state.syntheticName = false;
             diagLog("eventHandler: restored name '" + dbName + "' from DB for " + sessionID.slice(0, 16));
           }
         }
@@ -1594,6 +1603,7 @@ export default (async (ctx: PluginInput) => {
         // SESSION-START conflicts with POST-COMPACTION.
         if (!state.name && state.sessionSelectPending) {
           state.name = generateUniqueMdPath('Session', sessionID, db, directory);
+          state.syntheticName = true;
           state.sessionSelectPending = false;
           state.sessionStartInjected = false;
           diagLog("eventHandler: force-named session to '" + state.name + "' (was sessionSelectPending at compact) for " + sessionID.slice(0, 16));
@@ -1766,10 +1776,11 @@ export default (async (ctx: PluginInput) => {
         } else {
           // Check if there's a binding in session_map for this sessionID
           const mappedName = db.getSessionMapName(sessionID);
-          if (mappedName) {
-            // Restore name from session_map
-            state.name = mappedName;
-            diagLog("chat.message: restored name '" + mappedName + "' from session_map");
+            if (mappedName) {
+                // Restore name from session_map
+                state.name = mappedName;
+                state.syntheticName = false;
+                diagLog("chat.message: restored name '" + mappedName + "' from session_map");
             } else {
               // No name, no binding.
               // Safety net: session.created didn't set the flag (hot-reload, race).
@@ -1784,9 +1795,11 @@ export default (async (ctx: PluginInput) => {
         const mappedName = db.getSessionMapName(sessionID);
         if (mappedName) {
           state.name = mappedName;
+          state.syntheticName = false;
           diagLog("chat.message: self-healing — restored name '" + mappedName + "' from session_map");
         } else {
           state.name = generateUniqueMdPath('Session', sessionID, db, directory);
+          state.syntheticName = true;
           diagLog("chat.message: self-healing — auto-named to '" + state.name + "'");
         }
         // Save unsavedMessages (if restored after crash)
@@ -1827,6 +1840,7 @@ export default (async (ctx: PluginInput) => {
               const firstWord = extractFirstWord(p.text);
               const uniqueName = generateUniqueMdPath(firstWord, sessionID, db, directory);
               state.name = uniqueName;
+              state.syntheticName = false;
               try {
                 await ctx.client?.tui.showToast({
                   body: { title: "📝 [v5] Session: " + uniqueName, message: 'New session "' + uniqueName + '"', variant: "info", duration: 3000 },
@@ -1857,9 +1871,10 @@ export default (async (ctx: PluginInput) => {
     systemTransformCalled.set(sessionID, false);
 
     // Safety timer 120s
-    setTimeout(() => {
-      isCompacting.set(sessionID, false);
+    const safetyTimer = setTimeout(() => {
+      isCompacting.delete(sessionID);
     }, 120_000);
+    const cancelSafetyTimer = () => clearTimeout(safetyTimer);
 
     try {
       const state = getOrCreateState(sessionID);
@@ -1869,6 +1884,7 @@ export default (async (ctx: PluginInput) => {
         const dbName = typeof db?.getSessionMapName === 'function' ? db.getSessionMapName(sessionID) : null;
         if (dbName) {
           state.name = dbName;
+          state.syntheticName = false;
           diagLog("compactingHandler: restored name '" + dbName + "' from DB for " + sessionID.slice(0, 16));
         }
       }
@@ -1878,7 +1894,9 @@ export default (async (ctx: PluginInput) => {
       // otherwise systemTransformHandler will see the flag and inject [COMPACTION]
       // instead of [SESSION-SELECT] and MEMORY_RULES for up to 120 seconds.
       if (!state.name && state.sessionSelectPending) {
+        cancelSafetyTimer();
         isCompacting.set(sessionID, false);
+        state.syntheticName = true;
         diagLog("compactingHandler: skipped — sessionSelectPending, no name, sessionID=" + sessionID.slice(0, 16));
         output.enabled = true;
         return;
@@ -1887,6 +1905,7 @@ export default (async (ctx: PluginInput) => {
       // F2 (v5.9): unattached session without pending selection — assign a temporary name
       if (!state.name) {
         state.name = generateUniqueMdPath('Session', sessionID, db, directory);
+        state.syntheticName = true;
         diagLog("compactingHandler: assigned fallback name '" + state.name + "' for " + sessionID.slice(0, 16));
       }
 
@@ -1909,7 +1928,9 @@ export default (async (ctx: PluginInput) => {
         `REQUIRED IMMEDIATELY:`,
         `1. Output the full session chronology in MEMORY file format`,
         `2. Start from message 1, proceed in order`,
-        `3. End with phrase: "To continue, paste this link into the chat: @MEMORIES/MEMORY_${compactName}.md"`,
+        state.syntheticName
+          ? `3. End with phrase: "What shall we do next?"`
+          : `3. End with phrase: "To continue, paste this link into the chat: @MEMORIES/MEMORY_${compactName}.md"`,
         ``,
         `Chronology format:`,
         `### Message N — User`,
@@ -1925,6 +1946,7 @@ export default (async (ctx: PluginInput) => {
         `[/COMPACTION]`,
       ].join("\n");
 
+      cancelSafetyTimer();
       diagLog("session.compacting: output.prompt SET");
     } catch (e) {
       diagLog("session.compacting: ERROR " + e);
@@ -1938,6 +1960,13 @@ export default (async (ctx: PluginInput) => {
     if (isDisposed) return;
     const sessionID = input.sessionID;
     if (sessionID) {
+      const state = sessionStates.get(sessionID);
+      if (state?.syntheticName) {
+        isCompacting.set(sessionID, false);
+        output.enabled = true;
+        diagLog("autocontinue: skipped (unattached, syntheticName) for " + sessionID.slice(0, 16));
+        return;
+      }
       isCompacting.set(sessionID, false);
       // D50: per-session pendingPostCompact with cleanup timeout
       const existing = pendingPostCompact.get(sessionID);
@@ -1979,6 +2008,7 @@ export default (async (ctx: PluginInput) => {
   };
 
   const systemTransformHandler = async (input: any, output: any) => {
+    if (isDisposed) return;
     const sessionID = input.sessionID;
     diagLog("system.transform: CALLED sessionID=" + (sessionID || "?"));
     output.system ??= [];  // D63: guard against undefined (splice would throw)
@@ -2063,6 +2093,7 @@ export default (async (ctx: PluginInput) => {
   };
 
   const messagesTransformHandler = async (input: any, output: any) => {
+    if (isDisposed) return;
     output.messages ??= [];  // FIX-F: guard against undefined
     // D29: SDK input: {} for messages.transform — sessionID is not passed.
     // Fallback chain: input.sessionID → output.messages[0].info.sessionID → lastActiveSessionID
@@ -2453,7 +2484,10 @@ If you receive the command "Continue if you have next steps, or stop and ask for
           // if (fs.existsSync(oldMdPath)) {
           //   fs.unlinkSync(oldMdPath);
           // }
-          if (state) state.name = newName;
+          if (state) {
+            state.name = newName;
+            state.syntheticName = false;
+          }
 
           return "✅ Renamed to `" + newName + "`.";
         } catch (e) {
@@ -2492,7 +2526,10 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         }
 
         db.addSessionMap(sid, targetName);
-        if (state) state.name = targetName;
+        if (state) {
+          state.name = targetName;
+          state.syntheticName = false;
+        }
 
         return "✅ Tab attached to session '" + targetName + "'.";
       }
@@ -2504,6 +2541,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
             await saveCurrentSession(sid, state, true);
           }
           cleanupPendingViaChat(sid);
+          pendingPostCompact.delete(sid);
           db.deleteSessionMap(sid);
           state.name = null;
           state.sessionSaved = true;
@@ -2532,7 +2570,11 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         }
 
         const uniqueName = generateUniqueMdPath(rawName, sid, db, directory);
-        if (state) state.name = uniqueName;
+        if (state) {
+          state.name = uniqueName;
+          state.syntheticName = false;
+        }
+        cleanupSessionState(sid);
 
         const content = "# MEMORY_" + uniqueName + "\n\n> **Last updated:** " + new Date().toLocaleString("en-US") + "\n> **Total messages:** 0\n\n---\n\n## 1️⃣ CURRENT STATE\n\n_New session._\n\n---\n\n## 2️⃣ DECISION BOARD\n\n_No decisions recorded._\n\n---\n\n## 4️⃣ KNOWN ISSUES\n\n_No known issues._\n\n---\n\n## 5️⃣ RECENT MESSAGES\n\n";
         const mdPath = getSessionMdPathV5(directory, uniqueName);
@@ -2559,9 +2601,11 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         db.addSessionMap(sid, targetName);
         if (state) {
           state.name = targetName;
+          state.syntheticName = false;
           state.sessionFirstChecked = true;
           state.unsavedMessages = [];
         }
+        cleanupSessionState(sid);
 
         return '✅ Switched to session "' + targetName + '".';
       }
@@ -2719,6 +2763,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
     clearInterval(gcTimer);
     sessionStates.clear();
     isCompacting.clear();
+    systemTransformCalled.clear();
     // FIX-G: save pendingPostCompactViaChat before cleanup
     for (const [sid, entry] of pendingPostCompactViaChat) {
         db.savePendingCompact(sid, entry.source, entry.compactName);
@@ -2944,6 +2989,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
       const fallbackName = 'Session';
       const uniqueName = generateUniqueMdPath(fallbackName, sessionID, db, directory);
       state.name = uniqueName;
+      state.syntheticName = true;
       state.sessionSelectPending = false;
       state.sessionSelectAttempts = 0;
       state.sessionStartInjected = false;
@@ -2959,6 +3005,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
       const fallbackName = 'Session';
       const uniqueName = generateUniqueMdPath(fallbackName, sessionID, db, directory);
       state.name = uniqueName;
+      state.syntheticName = true;
       state.unsavedMessages = [];
       if (output?.message) output.message.system = `✅ Auto-naming: session **${uniqueName}**.`;
       handled = true;
@@ -2979,6 +3026,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
           const currentBinding = db.get("SELECT session_name FROM session_map WHERE session_id = ?", [sessionID]);
           if (currentBinding && currentBinding.session_name === attachName) {
             state.name = attachName;
+            state.syntheticName = false;
             state.unsavedMessages = [];
             try { await ctx.client?.tui.showToast({ body: { title: '📝 Session: ' + attachName, message: 'Already attached', variant: 'info', duration: 3000 } }); } catch {}
             handled = true;
@@ -2993,6 +3041,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
               return false;
             }
             state.name = attachName;
+            state.syntheticName = false;
             state.unsavedMessages = [];
             // DELETE + INSERT for session_id
             db.runRaw("BEGIN TRANSACTION");
@@ -3024,6 +3073,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         newName = newName.replace(/^MEMORY_/i, '');
         const uniqueName = generateUniqueMdPath(newName, sessionID, db, directory);
         state.name = uniqueName;
+        state.syntheticName = false;
         state.unsavedMessages = [];
         if (output?.message) output.message.system = `✅ New session **${uniqueName}** created.`;
         handled = true;
@@ -3067,6 +3117,7 @@ If you receive the command "Continue if you have next steps, or stop and ask for
         const fallbackName = 'Session';
         const uniqueName = generateUniqueMdPath(fallbackName, sessionID, db, directory);
         state.name = uniqueName;
+        state.syntheticName = true;
         state.sessionSelectPending = false;
         state.sessionSelectAttempts = 0;
         state.sessionStartInjected = false;
